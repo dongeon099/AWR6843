@@ -8,7 +8,7 @@ MAX_PACKET_LEN = 65535
 # [DBSCAN] 클러스터링 파라미터
 DBSCAN_EPS = 0.2
 DBSCAN_MIN_SAMPLES = 5
-MIN_RANGE = 0.5
+MIN_RANGE = 0.2
 MAX_RANGE = 10.0
 
 # [그래프 고정] 화면 좌표 범위

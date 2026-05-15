@@ -45,14 +45,15 @@ def dbscan_scattering(points):
         "ClusterID": filtered_labels,
     })
 
-    return df, filtered_labels, x, y, filtered_points
+    return df, filtered_labels, filtered_points[:,0], filtered_points[:,1], filtered_points
 
-
+# extract_clusters에 들어가는 points는 dbscan_scattering에서 노이즈 제거, 제한된 거리로 필터링된 포인트들이다.
+# 따라서 df도 노이즈제거, 제한된 거리로 필터링된 라이브러리다. 
 def extract_clusters(points, labels): #extract : 추출하다 
     points = np.array(points, dtype=float)
     labels = np.array(labels)
 
-    cluster_objects = [] #centroid 된 좌표 
+    cluster_centroid_objects = [] #centroid 된 좌표 
 
     for cluster_id in set(labels):
         
@@ -71,7 +72,7 @@ def extract_clusters(points, labels): #extract : 추출하다
             centroid_x**2 + centroid_y**2 + centroid_z**2
         )
         #centroid 된 좌표 
-        cluster_objects.append({
+        cluster_centroid_objects.append({
             "id": cluster_id,
             "x": centroid_x,
             "y": centroid_y,
@@ -80,9 +81,9 @@ def extract_clusters(points, labels): #extract : 추출하다
             "distance": centroid_distance,
         })
 
-    if len(cluster_objects) == 0:
+    if len(cluster_centroid_objects) == 0:
         nearest_obj = None
     else:
-        nearest_obj = min(cluster_objects, key=lambda obj: obj["distance"])
+        nearest_obj = min(cluster_centroid_objects, key=lambda obj: obj["distance"])
 
-    return cluster_objects, nearest_obj
+    return cluster_centroid_objects, nearest_obj

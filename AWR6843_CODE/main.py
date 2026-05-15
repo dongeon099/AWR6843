@@ -17,8 +17,7 @@ def main():
     fig, ax = plt.subplots()
 
     buffer = bytearray()
-    ### 이동평균 필터 실험
-    nearest_filter = MovingAvergeFilter(window_size = 5)
+    
 
 
     try:
@@ -40,9 +39,9 @@ def main():
                 if df is None:
                     continue
                 # cluster_centroid_objects: centroid 된 좌표 , nearest_obj : centroid 중 제일 가까운 점 
-                cluster_centroid_objects, nearest_obj = extract_clusters(filtered_points, labels)
-                velocity_obj = velocity_filter(cluster_centroid_objects) # y축 속도 필터링된 객체들
-                # nearest_obj = nearest_filter.update(nearest_obj) # 이동평균 필터 실험 
+                cluster_centroid_objects = extract_clusters(filtered_points, labels)
+                velocity_obj = velocity_filter(cluster_centroid_objects) # y축 속도 필터링된 객체들 
+
                 visualize_points(
                     fig,
                     ax,
@@ -52,8 +51,9 @@ def main():
                     y,
                     num_detected_obj,
                     cluster_centroid_objects,
-                    nearest_obj
+                    velocity_obj
                 )
+
             except Exception as e:
                 print(f"프레임 처리 중 오류 발생: {e}")
 

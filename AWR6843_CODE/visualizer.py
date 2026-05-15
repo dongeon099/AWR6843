@@ -51,12 +51,13 @@ def _draw_fov_overlay(ax, az_min_deg, az_max_deg, boresight_deg, range_max_m):
     ax.add_patch(fov_patch)
 
 
-def visualize_points(fig, ax, df, labels, x, y, num_detected_obj, cluster_objects, nearest_obj):
+def visualize_points(fig, ax, df, labels, x, y, num_detected_obj, cluster_objects, velocity_obj):
     print("\033c", end="")
     print("===== AWR6843 Detected Objects =====")
     print(f"Detected objects(header): {num_detected_obj}")
     print(df)
 
+    velocity_obj = np.asarray(velocity_obj)
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
     labels = np.asarray(labels)
@@ -67,13 +68,10 @@ def visualize_points(fig, ax, df, labels, x, y, num_detected_obj, cluster_object
 
     print(f"클러스터 수(DBSCAN): {cluster_count}, 노이즈 포인트: {noise_count}")
 
-    if nearest_obj is not None:
-        print("===== Nearest Object =====")
-        print(f"ID: {nearest_obj['id']}")
-        print(f"Distance: {nearest_obj['distance']:.3f} m")
-        print(f"X: {nearest_obj['x']:.3f} m")
-        print(f"Y: {nearest_obj['y']:.3f} m")
-        print(f"Velocity: {nearest_obj['v']:.3f} m/s")
+    if velocity_obj.size == 0:
+        print("속도 필터 통과 객체: 0개")
+    else:
+        print(f"속도 필터 통과 객체: {len(velocity_obj)}개")
 
     ax.clear()
 
@@ -119,32 +117,20 @@ def visualize_points(fig, ax, df, labels, x, y, num_detected_obj, cluster_object
             zorder=5,
         )
 
-    if nearest_obj is not None:
+        # [변경] 속도 필터 통과 객체(velocity_obj)는 별표(*)로 별도 표시합니다.
+    # 초보자용 설명: cluster centroid(네모)와 다른 마커를 써서 한눈에 구분합니다.
+    # processing.velocity_filter()에서 x/y를 각각 1,2번 인덱스로 사용하므로 동일하게 그립니다.
+    if velocity_obj.size != 0:
         ax.scatter(
-            nearest_obj["x"],
-            nearest_obj["y"],
-            s=120,
-            c="yellow",
+            velocity_obj[:, 1],
+            velocity_obj[:, 2],
+            s=140,
+            c="deepskyblue",
             marker="*",
             edgecolors="black",
-            linewidths=2,
-            label="Nearest Object",
-            zorder=10,
-        )
-        ax.text(
-            0.02,
-            0.98,
-            (
-                f"Nearest ID: {nearest_obj['id']}\n"
-                f"Distance: {nearest_obj['distance']:.3f} m\n"
-                f"Velocity: {nearest_obj['v']:.3f} m/s"
-            ),
-            transform=ax.transAxes,
-            va="top",
-            ha="left",
-            fontsize=10,
-            bbox=dict(boxstyle="round,pad=0.4", facecolor="white", alpha=0.85, edgecolor="black"),
-            zorder=20,
+            linewidths=1.2,
+            label="Velocity Filter Pass",
+            zorder=8,
         )
 
     ax.set_xlabel("X position [m]")

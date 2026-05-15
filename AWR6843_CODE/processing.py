@@ -83,15 +83,28 @@ def extract_clusters(points, labels): #extract : 추출하다
             "distance": centroid_distance,
         })
 
-    if len(cluster_centroid_objects) == 0:
-        nearest_obj = None
-    else:
-        nearest_obj = min(cluster_centroid_objects, key=lambda obj: obj["distance"])
-
-    return cluster_centroid_objects, nearest_obj
+    return cluster_centroid_objects
 
 def velocity_filter(obj):
-    obj = np.array(obj, dtype=float)
+
+    if not obj:
+        return np.empty((0, 6), dtype = float)  # 빈 배열 반환 (5는 객체의 속성 수)
+    
+    if isinstance(obj[0], dict): # 이 변수의 자료형이 맞는지 검사하는 코드
+        obj = np.array([
+            [
+                float(obj[i]["id"]),
+                float(obj[i]["x"]),      
+                float(obj[i]["y"]),
+                float(obj[i]["z"]),
+                float(obj[i]["v"]),
+                float(obj[i]["distance"])
+            ]
+            for i in range(len(obj))
+        ], dtype=float)
+    else:
+        obj = np.array(obj, dtype=float)
+    
     velocity = obj[:, 4] 
     Y_distance = obj[:, 2]
     X_distance = obj[:, 1]
@@ -104,4 +117,5 @@ def velocity_filter(obj):
     &(X_distance > -X_RANGE))  
 
     velocity_obj = obj[valid]  
+
     return velocity_obj

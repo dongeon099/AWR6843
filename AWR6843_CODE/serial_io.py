@@ -25,14 +25,14 @@ def send_cfg(cli, cfg_file):
 
         cli.write((line + "\n").encode("utf-8"))
         print(f"보냄: {line}")
-        time.sleep(0.05)
+        time.sleep(0.01)
 
         while cli.in_waiting > 0:
             resp = cli.readline().decode("utf-8", errors="ignore").strip()
             if resp:
                 print(f"응답: {resp}")
 
-        time.sleep(0.05)
+        time.sleep(0.01)
 
     print("cfg 전송 완료 / 레이더 시작")
-    time.sleep(0.005)
+    time.sleep(0.001)

@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
 from sklearn.cluster import DBSCAN
-from config import DBSCAN_EPS, DBSCAN_MIN_SAMPLES, MIN_RANGE, MAX_RANGE
+from config import (DBSCAN_EPS, DBSCAN_MIN_SAMPLES, MIN_RANGE, MAX_RANGE, 
+VELOCITY_THRESHOLD, Y_DISTANCE_THRESHOLD, X_range)
+
 
 # DBSCAN을 사용하여 점들을 클러스터링하고, 유효한 점들만 필터링하는 함수입니다.
 def dbscan_scattering(points):
@@ -87,3 +89,19 @@ def extract_clusters(points, labels): #extract : 추출하다
         nearest_obj = min(cluster_centroid_objects, key=lambda obj: obj["distance"])
 
     return cluster_centroid_objects, nearest_obj
+
+def velocity_filter(obj):
+    obj = np.array(obj, dtype=float)
+    velocity = obj[:, 4] 
+    Y_distance = obj[:, 2]
+    X_distance = obj[:, 1]
+    
+    valid =(
+    (np.abs(velocity) > VELOCITY_THRESHOLD) 
+    &(Y_distance > Y_DISTANCE_THRESHOLD)  
+    &(Y_distance < MAX_RANGE) 
+    &(X_distance < X_range) 
+    &(X_distance > -X_range))  
+
+    velocity_obj = obj[valid]  
+    return velocity_obj

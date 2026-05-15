@@ -14,7 +14,7 @@ MAX_RANGE = 10.0
 # 속도 필터링 임계값 (m/s)
 VELOCITY_THRESHOLD = 0.5
 Y_DISTANCE_THRESHOLD = 0.3
-X_range = 0.1
+X_RANGE = 0.1
 
 # [그래프 고정] 화면 좌표 범위
 VIEW_X_MIN, VIEW_X_MAX = -5.0, 5.0

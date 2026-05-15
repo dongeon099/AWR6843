@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import DBSCAN
 from config import (DBSCAN_EPS, DBSCAN_MIN_SAMPLES, MIN_RANGE, MAX_RANGE, 
-VELOCITY_THRESHOLD, Y_DISTANCE_THRESHOLD, X_range)
+VELOCITY_THRESHOLD, Y_DISTANCE_THRESHOLD, X_RANGE)
 
 
 # DBSCAN을 사용하여 점들을 클러스터링하고, 유효한 점들만 필터링하는 함수입니다.
@@ -100,8 +100,8 @@ def velocity_filter(obj):
     (np.abs(velocity) > VELOCITY_THRESHOLD) 
     &(Y_distance > Y_DISTANCE_THRESHOLD)  
     &(Y_distance < MAX_RANGE) 
-    &(X_distance < X_range) 
-    &(X_distance > -X_range))  
+    &(X_distance < X_RANGE) 
+    &(X_distance > -X_RANGE))  
 
     velocity_obj = obj[valid]  
     return velocity_obj

@@ -39,8 +39,8 @@ def main():
 
                 if df is None:
                     continue
-                # cluster_objects: centroid 된 좌표 , nearest_obj : centroid 중 제일 가까운 점 
-                cluster_objects, nearest_obj = extract_clusters(filtered_points, labels)
+                # cluster_centroid_objects: centroid 된 좌표 , nearest_obj : centroid 중 제일 가까운 점 
+                cluster_centroid_objects, nearest_obj = extract_clusters(filtered_points, labels)
                 nearest_obj = nearest_filter.update(nearest_obj) # 이동평균 필터 실험 
                 visualize_points(
                     fig,
@@ -50,7 +50,7 @@ def main():
                     x,
                     y,
                     num_detected_obj,
-                    cluster_objects,
+                    cluster_centroid_objects,
                     nearest_obj
                 )
             except Exception as e:

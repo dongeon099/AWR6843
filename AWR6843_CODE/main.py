@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from config import build_config
 from serial_io import open_serial_ports, send_cfg
 from parser import read_packet_buffer, parse_tlv_points
-from processing import dbscan_scattering, extract_clusters
+from processing import dbscan_scattering, extract_clusters,velocity_filter
 from visualizer import visualize_points
 from moving_avg_filter import MovingAvergeFilter
 
@@ -41,7 +41,8 @@ def main():
                     continue
                 # cluster_centroid_objects: centroid 된 좌표 , nearest_obj : centroid 중 제일 가까운 점 
                 cluster_centroid_objects, nearest_obj = extract_clusters(filtered_points, labels)
-                nearest_obj = nearest_filter.update(nearest_obj) # 이동평균 필터 실험 
+                velocity_obj = velocity_filter(cluster_centroid_objects) # y축 속도 필터링된 객체들
+                # nearest_obj = nearest_filter.update(nearest_obj) # 이동평균 필터 실험 
                 visualize_points(
                     fig,
                     ax,

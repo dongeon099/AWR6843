@@ -5,9 +5,10 @@ from matplotlib.patches import Wedge
 from config import VIEW_X_MIN, VIEW_X_MAX, VIEW_Y_MIN, VIEW_Y_MAX
 
 # 기본값(필요 시 config.py에서 override)
+# 레이더 시야각 설명 - AWR6843의 방위각 범위는 -60도에서 +60도 사이입니다. (총 120도)
 AWR_AZIMUTH_MIN_DEG = -60.0
 AWR_AZIMUTH_MAX_DEG = 60.0
-AWR_BORESIGHT_DEG = 90.0  # Matplotlib 기준 +X=0도, +Y=90도
+AWR_BORESIGHT_DEG = 90.0
 
 
 def _get_config_value(name, default):
@@ -20,13 +21,11 @@ def _get_config_value(name, default):
 
 
 def _resolve_fov_config():
-    """AWR FOV 설정(방위각 최소/최대, 기준축, 최대거리) 반환."""
+   
     az_min = _get_config_value("AWR_AZIMUTH_MIN_DEG", AWR_AZIMUTH_MIN_DEG)
     az_max = _get_config_value("AWR_AZIMUTH_MAX_DEG", AWR_AZIMUTH_MAX_DEG)
     boresight = _get_config_value("AWR_BORESIGHT_DEG", AWR_BORESIGHT_DEG)
-
-    default_range_max = max(0.0, VIEW_Y_MAX)
-    range_max = _get_config_value("AWR_RANGE_MAX_M", default_range_max)
+    range_max = _get_config_value("AWR_RANGE_MAX_M", max(0.0, VIEW_Y_MAX))
     return az_min, az_max, boresight, max(0.0, range_max)
 
 
@@ -57,21 +56,18 @@ def visualize_points(fig, ax, df, labels, x, y, num_detected_obj, cluster_object
     print(f"Detected objects(header): {num_detected_obj}")
     print(df)
 
-    velocity_obj = np.asarray(velocity_obj)
+    labels = np.asarray(labels)
     x = np.asarray(x, dtype=float)
     y = np.asarray(y, dtype=float)
-    labels = np.asarray(labels)
+    velocity_obj = np.asarray(velocity_obj)
 
-    unique_labels = sorted(set(labels.tolist()))
+    unique_labels = sorted(set(labels.tolist())) if labels.size else []
     cluster_count = len([lb for lb in unique_labels if lb != -1])
-    noise_count = int(np.sum(labels == -1))
+    noise_count = int(np.sum(labels == -1)) if labels.size else 0
 
     print(f"클러스터 수(DBSCAN): {cluster_count}, 노이즈 포인트: {noise_count}")
 
-    if velocity_obj.size == 0:
-        print("속도 필터 통과 객체: 0개")
-    else:
-        print(f"속도 필터 통과 객체: {len(velocity_obj)}개")
+    print(f"속도 필터 통과 객체: {len(velocity_obj)}개")
 
     ax.clear()
 
@@ -90,7 +86,22 @@ def visualize_points(fig, ax, df, labels, x, y, num_detected_obj, cluster_object
         & (y >= 0.0)
     )
 
-    sc = ax.scatter(x[in_fov_mask], y[in_fov_mask], s=30, c=labels[in_fov_mask], cmap="tab20")
+    
+    if np.any(in_fov_mask):
+        sc = ax.scatter(
+            x[in_fov_mask],
+            y[in_fov_mask],
+            s=30,
+            c=labels[in_fov_mask],
+            cmap="tab20",
+            zorder=2,
+        )
+
+        if not hasattr(fig, "_awr_colorbar"):
+            fig._awr_colorbar = plt.colorbar(sc, ax=ax)
+            fig._awr_colorbar.set_label("Cluster ID (-1: noise)")
+        else:
+            fig._awr_colorbar.update_normal(sc)
 
     if np.any(~in_fov_mask):
         ax.scatter(
@@ -117,9 +128,6 @@ def visualize_points(fig, ax, df, labels, x, y, num_detected_obj, cluster_object
             zorder=5,
         )
 
-        # [변경] 속도 필터 통과 객체(velocity_obj)는 별표(*)로 별도 표시합니다.
-    # 초보자용 설명: cluster centroid(네모)와 다른 마커를 써서 한눈에 구분합니다.
-    # processing.velocity_filter()에서 x/y를 각각 1,2번 인덱스로 사용하므로 동일하게 그립니다.
     if velocity_obj.size != 0:
         ax.scatter(
             velocity_obj[:, 1],
@@ -142,11 +150,5 @@ def visualize_points(fig, ax, df, labels, x, y, num_detected_obj, cluster_object
     ax.set_aspect("equal", adjustable="box")
     ax.legend(loc="upper right")
 
-    if np.any(in_fov_mask):
-        if not hasattr(fig, "_awr_colorbar"):
-            fig._awr_colorbar = plt.colorbar(sc, ax=ax)
-            fig._awr_colorbar.set_label("Cluster ID (-1: noise)")
-        else:
-            fig._awr_colorbar.update_normal(sc)
 
     plt.pause(0.001)

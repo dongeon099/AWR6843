@@ -27,16 +27,33 @@ def main():
 
                 if packet is None:
                     continue
-                
-                #  ekf 적용전 준비: 프레임 시간간격(dt) 계산
+
+                """  
+                ## EKF 적용 전 준비: 프레임 시간 간격(dt) 계산
+                - AWR6843은 일정한 주기로 레이더 프레임을 출력한다.
+                - 한 프레임과 다음 프레임 사이의 시간 간격을 `dt`라고 한다.
+                - 일반적으로 프레임 간격은 약 0.05~0.1초 정도로 볼 수 있다.
+                - EKF의 예측 단계는 `dt`를 기준으로 물체의 다음 위치를 예측한다.
+                - 따라서 `dt`가 너무 작거나 너무 크면 EKF 예측값이 불안정해질 수 있다.
+
+                ### dt 제한 기준
+
+                - 실제 프레임 간격이 `0.001초`보다 작으면 `dt = 0.001`로 고정한다.
+                - 실제 프레임 간격이 `0.2초`보다 크면 `dt = 0.2`로 고정한다.
+
+                ### 목적
+
+                이렇게 하면 일시적인 프레임 지연이나 시간 측정 오류가 발생해도  
+                EKF가 과도하게 빠르거나 느리게 예측하지 않도록 막을 수 있다.
+                """
                 now_ts = time.monotonic()
                 if prev_frame_ts is None:
                     dt = 0.05
                 else: 
                     dt = now_ts - prev_frame_ts
-                    dt = max(0.001, min(dt, 0.2))
+                    dt = max(0.001, min(dt, 0.2)) 
                 prev_frame_ts = now_ts
-                #######################################
+                
 
                 points, num_detected_obj = parse_tlv_points(packet)
 

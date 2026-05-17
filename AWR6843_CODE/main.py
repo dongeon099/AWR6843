@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-
+import time
 from config import build_config
 from serial_io import open_serial_ports, send_cfg
 from parser import read_packet_buffer, parse_tlv_points
@@ -17,7 +17,7 @@ def main():
     fig, ax = plt.subplots()
 
     buffer = bytearray()
-    
+    prev_frame_ts = None
 
 
     try:
@@ -27,6 +27,16 @@ def main():
 
                 if packet is None:
                     continue
+                
+                #  ekf 적용전 준비: 프레임 시간간격(dt) 계산
+                now_ts = time.monotonic()
+                if prev_frame_ts is None:
+                    dt = 0.05
+                else: 
+                    dt = now_ts - prev_frame_ts
+                    dt = max(0.001, min(dt, 0.2))
+                prev_frame_ts = now_ts
+                #######################################
 
                 points, num_detected_obj = parse_tlv_points(packet)
 

@@ -1,11 +1,10 @@
 import matplotlib.pyplot as plt
 import time
-from config import build_config
+from config import build_config, DT_DEFAULT, DT_MIN, DT_MAX
 from serial_io import open_serial_ports, send_cfg
 from parser import read_packet_buffer, parse_tlv_points
 from processing import dbscan_scattering, extract_clusters,velocity_filter
 from visualizer import visualize_points
-from moving_avg_filter import MovingAvergeFilter
 
 def main():
     cfg = build_config()
@@ -48,10 +47,10 @@ def main():
                 """
                 now_ts = time.monotonic()
                 if prev_frame_ts is None:
-                    dt = 0.05
+                    dt = DT_DEFAULT
                 else: 
                     dt = now_ts - prev_frame_ts
-                    dt = max(0.001, min(dt, 0.2)) 
+                    dt = max(DT_MIN, min(dt, DT_MAX))
                 prev_frame_ts = now_ts
                 
 

@@ -11,6 +11,14 @@ DBSCAN_MIN_SAMPLES = 10
 MIN_RANGE = 0.5
 MAX_RANGE = 10.0
 
+# EKF 예측 단계용 프레임 시간 간격 
+DT_DEFAULT = 0.05
+DT_MIN = 0.001
+DT_MAX = 0.2
+
+#프레임간 최근접 연관 거리 게이트(m)
+TRACK_ASSOCIATION_MAX_DISTANCE = 0.8
+
 # 속도 필터링 임계값 (m/s)
 VELOCITY_THRESHOLD = 0.2
 Y_DISTANCE_THRESHOLD = 0.2

@@ -3,7 +3,7 @@ import time
 from config import build_config, DT_DEFAULT, DT_MIN, DT_MAX
 from serial_io import open_serial_ports, send_cfg
 from parser import read_packet_buffer, parse_tlv_points
-from processing import dbscan_scattering, extract_clusters,velocity_filter
+from processing import assign_track_ids, dbscan_scattering, extract_clusters,velocity_filter
 from visualizer import visualize_points
 
 def main():
@@ -17,7 +17,8 @@ def main():
 
     buffer = bytearray()
     prev_frame_ts = None
-
+    prev_tracks = []
+    next_track_id = 1
 
     try:
         while True:
@@ -66,7 +67,14 @@ def main():
                     continue
                 # cluster_centroid_objects: centroid 된 좌표 , nearest_obj : centroid 중 제일 가까운 점 
                 cluster_centroid_objects = extract_clusters(filtered_points, labels)
-                velocity_obj = velocity_filter(cluster_centroid_objects) # y축 속도 필터링된 객체들 
+                
+                tracked_objects, prev_tracks, next_track_id = assign_track_ids(
+                    cluster_centroid_objects,
+                    prev_tracks,
+                    next_track_id,
+                )
+
+                velocity_obj = velocity_filter(tracked_objects) # y축 속도 필터링된 객체들 
 
                 visualize_points(
                     fig,
@@ -76,7 +84,7 @@ def main():
                     x,
                     y,
                     num_detected_obj,
-                    cluster_centroid_objects,
+                    tracked_objects,
                     velocity_obj
                 )
 

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.cluster import DBSCAN
 from config import (DBSCAN_EPS, DBSCAN_MIN_SAMPLES, MIN_RANGE, MAX_RANGE, 
-VELOCITY_THRESHOLD, Y_DISTANCE_THRESHOLD, X_RANGE)
+VELOCITY_THRESHOLD, Y_DISTANCE_THRESHOLD, X_RANGE, TRACK_ASSOCIATION_MAX_DISTANCE)
 
 
 # DBSCAN을 사용하여 점들을 클러스터링하고, 유효한 점들만 필터링하는 함수입니다.
@@ -75,7 +75,7 @@ def extract_clusters(points, labels): #extract : 추출하다
         )
         #centroid 된 좌표 
         cluster_centroid_objects.append({
-            "id": cluster_id,
+            "track_id": cluster_id,
             "x": centroid_x,
             "y": centroid_y,
             "z": centroid_z,
@@ -85,6 +85,45 @@ def extract_clusters(points, labels): #extract : 추출하다
 
     return cluster_centroid_objects
 
+def assign_track_ids(cluster_objects, prev_tracks, next_track_id, max_association_distance=TRACK_ASSOCIATION_MAX_DISTANCE):
+    """DBSCAN cluster_id와 독립적인 track_id를 프레임 간 최근접 거리로 할당."""
+    if not cluster_objects:
+        return [], [], next_track_id
+
+    remaining_prev = [
+        {
+            "track_id": int(track["track_id"]),
+            "x": float(track["x"]),
+            "y": float(track["y"]),
+        }
+        for track in prev_tracks
+    ]
+
+    tracked_objects = []
+    for obj in cluster_objects:
+        best_idx = -1
+        best_dist = float("inf")
+
+        for idx, prev in enumerate(remaining_prev):
+            dist = np.hypot(obj["x"] - prev["x"], obj["y"] - prev["y"])
+            if dist < best_dist:
+                best_dist = dist
+                best_idx = idx
+
+        if best_idx != -1 and best_dist <= max_association_distance:
+            assigned_track_id = remaining_prev[best_idx]["track_id"]
+            del remaining_prev[best_idx]
+        else:
+            assigned_track_id = next_track_id
+            next_track_id += 1
+
+        tracked_obj = dict(obj)
+        tracked_obj["track_id"] = assigned_track_id
+        tracked_objects.append(tracked_obj)
+
+    next_prev_tracks = [{"track_id": obj["track_id"], "x": obj["x"], "y": obj["y"]} for obj in tracked_objects]
+    return tracked_objects, next_prev_tracks, next_track_id
+
 def velocity_filter(obj):
 
     if not obj:
@@ -93,7 +132,7 @@ def velocity_filter(obj):
     if isinstance(obj[0], dict): # 이 변수의 자료형이 맞는지 검사하는 코드
         obj = np.array([
             [
-                float(obj[i]["id"]),
+                float(obj[i]["track_id"]),
                 float(obj[i]["x"]),      
                 float(obj[i]["y"]),
                 float(obj[i]["z"]),

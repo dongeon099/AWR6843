@@ -72,6 +72,7 @@ def main():
                     cluster_centroid_objects,
                     prev_tracks,
                     next_track_id,
+                    dt=dt,
                 )
 
                 velocity_obj = velocity_filter(tracked_objects) # y축 속도 필터링된 객체들 

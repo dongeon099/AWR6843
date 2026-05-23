@@ -77,16 +77,18 @@ def main():
 
                 velocity_obj = velocity_filter(tracked_objects) # y축 속도 필터링된 객체들 
 
+                lane_1_velocity_obj = velocity_filter.lane_1_obj # 1 lane data is collected after velocity_filter runs.
+                lane_2_velocity_obj = velocity_filter.lane_2_obj # 2 lane data is kept separate without changing velocity_obj.
+                lane_3_velocity_obj = velocity_filter.lane_3_obj # 3 lane data is collected separately from the current lane.
+
                 visualize_points(
                     fig,
                     ax,
-                    df,
-                    labels,
                     x,
                     y,
-                    num_detected_obj,
-                    tracked_objects,
-                    velocity_obj
+                    lane_1_velocity_obj,
+                    lane_2_velocity_obj,
+                    lane_3_velocity_obj
                 )
 
             except Exception as e:

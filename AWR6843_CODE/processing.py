@@ -224,6 +224,9 @@ def assign_track_ids(
 def velocity_filter(obj):
 
     if not obj:
+        velocity_filter.lane_1_obj = []  # Keep adjacent lane buffers empty when no objects exist.
+        velocity_filter.lane_2_obj = []  # Keep existing lane data accessible without changing the return value.
+        velocity_filter.lane_3_obj = []  # Store lane 3 separately while preserving the current pipeline.
         return np.empty((0, 6), dtype = float)  # 빈 배열 반환 (5는 객체의 속성 수)
     
     if isinstance(obj[0], dict): # 이 변수의 자료형이 맞는지 검사하는 코드
@@ -244,6 +247,15 @@ def velocity_filter(obj):
     velocity = obj[:, 4] 
     Y_distance = obj[:, 2]
     X_distance = obj[:, 1]
+
+    base_valid =(
+    (np.abs(velocity) > VELOCITY_THRESHOLD) 
+    &(Y_distance > Y_DISTANCE_THRESHOLD)  
+    &(Y_distance < MAX_RANGE))
+    lane_width = X_RANGE * 2.0  # Use the current lane half-range to split lane 1/2/3 without new config.
+    lane_1_valid = base_valid &(X_distance > -X_RANGE - lane_width) &(X_distance <= -X_RANGE)
+    lane_2_valid = base_valid &(X_distance < X_RANGE) &(X_distance > -X_RANGE)
+    lane_3_valid = base_valid &(X_distance >= X_RANGE) &(X_distance < X_RANGE + lane_width)
     
     valid =(
     (np.abs(velocity) > VELOCITY_THRESHOLD) 
@@ -253,5 +265,17 @@ def velocity_filter(obj):
     &(X_distance > -X_RANGE))  
 
     velocity_obj = obj[valid]  
+    velocity_filter.lane_1_obj = [
+        {"track_id": int(row[0]), "x": row[1], "y": row[2], "z": row[3], "v": row[4], "distance": row[5]}
+        for row in obj[lane_1_valid]
+    ]  # Save moving objects from lane 1 separately for later use.
+    velocity_filter.lane_2_obj = [
+        {"track_id": int(row[0]), "x": row[1], "y": row[2], "z": row[3], "v": row[4], "distance": row[5]}
+        for row in obj[lane_2_valid]
+    ]  # Save current-lane moving objects while keeping the old numpy return.
+    velocity_filter.lane_3_obj = [
+        {"track_id": int(row[0]), "x": row[1], "y": row[2], "z": row[3], "v": row[4], "distance": row[5]}
+        for row in obj[lane_3_valid]
+    ]  # Save moving objects from lane 3 separately for later use.
 
     return velocity_obj

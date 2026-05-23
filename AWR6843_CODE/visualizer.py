@@ -2,10 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Wedge
 
-from config import VIEW_X_MIN, VIEW_X_MAX, VIEW_Y_MIN, VIEW_Y_MAX
+from config import VIEW_X_MIN, VIEW_X_MAX, VIEW_Y_MIN, VIEW_Y_MAX, X_RANGE
 
-# 기본값(필요 시 config.py에서 override)
-# 레이더 시야각 설명 - AWR6843의 방위각 범위는 -60도에서 +60도 사이입니다. (총 120도)
 AWR_AZIMUTH_MIN_DEG = -60.0
 AWR_AZIMUTH_MAX_DEG = 60.0
 AWR_BORESIGHT_DEG = 90.0
@@ -21,7 +19,6 @@ def _get_config_value(name, default):
 
 
 def _resolve_fov_config():
-   
     az_min = _get_config_value("AWR_AZIMUTH_MIN_DEG", AWR_AZIMUTH_MIN_DEG)
     az_max = _get_config_value("AWR_AZIMUTH_MAX_DEG", AWR_AZIMUTH_MAX_DEG)
     boresight = _get_config_value("AWR_BORESIGHT_DEG", AWR_BORESIGHT_DEG)
@@ -30,125 +27,164 @@ def _resolve_fov_config():
 
 
 def _draw_fov_overlay(ax, az_min_deg, az_max_deg, boresight_deg, range_max_m):
-    """레이더 원점(0,0) 기준 허용 방위각+거리 영역 표시."""
     theta1 = boresight_deg + az_min_deg
     theta2 = boresight_deg + az_max_deg
 
-    fov_patch = Wedge(
-        center=(0.0, 0.0),
-        r=range_max_m,
-        theta1=theta1,
-        theta2=theta2,
-        facecolor="lightgreen",
-        alpha=0.15,
-        edgecolor="green",
-        linewidth=1.2,
-        linestyle="--",
-        zorder=0,
-        label="AWR6843 FOV",
+    ax.add_patch(
+        Wedge(
+            center=(0.0, 0.0),
+            r=range_max_m,
+            theta1=theta1,
+            theta2=theta2,
+            facecolor="lightgreen",
+            alpha=0.12,
+            edgecolor="green",
+            linewidth=1.2,
+            linestyle="--",
+            zorder=0,
+            label="Radar azimuth",
+        )
     )
-    ax.add_patch(fov_patch)
 
 
-def visualize_points(fig, ax, df, labels, x, y, num_detected_obj, cluster_objects, velocity_obj):
+def _lane_bounds():
+    lane_width = X_RANGE * 2.0  # Match velocity_filter lane width so the visual grid uses the same lane split.
+    return [
+        ("Lane 1", -X_RANGE - lane_width, -X_RANGE, "tab:orange", "^"),
+        ("Lane 2", -X_RANGE, X_RANGE, "tab:blue", "o"),
+        ("Lane 3", X_RANGE, X_RANGE + lane_width, "tab:green", "s"),
+    ]
+
+
+def _draw_lane_grid(ax):
+    for lane_name, x_min, x_max, color, _ in _lane_bounds():
+        ax.axvspan(x_min, x_max, color=color, alpha=0.08, zorder=1)
+        ax.text(
+            (x_min + x_max) / 2.0,
+            VIEW_Y_MAX * 0.96,
+            lane_name,
+            ha="center",
+            va="top",
+            color=color,
+            fontsize=10,
+            fontweight="bold",
+        )
+
+    lane_edges = sorted({edge for _, x_min, x_max, _, _ in _lane_bounds() for edge in (x_min, x_max)})
+    for edge in lane_edges:
+        ax.axvline(edge, color="black", linewidth=0.8, linestyle=":", alpha=0.55, zorder=2)
+
+
+def _get_lane_xy(lane_objects):
+    if lane_objects is None:
+        return np.empty((0, 2), dtype=float)
+
+    if isinstance(lane_objects, np.ndarray):
+        arr = np.asarray(lane_objects, dtype=float)
+        if arr.size == 0:
+            return np.empty((0, 2), dtype=float)
+        if arr.ndim == 1:
+            arr = arr.reshape(1, -1)
+        return arr[:, [1, 2]]
+
+    if len(lane_objects) == 0:
+        return np.empty((0, 2), dtype=float)
+
+    return np.array([[float(obj["x"]), float(obj["y"])] for obj in lane_objects], dtype=float)
+
+
+def _get_velocity_distance(obj):
+    if isinstance(obj, dict):
+        return float(obj["v"]), float(obj["distance"])
+
+    row = np.asarray(obj, dtype=float)
+    return float(row[4]), float(row[5])
+
+
+def _print_lane_measurements(lane_name, lane_objects):
+    print(f"{lane_name}:")
+    if lane_objects is None or len(lane_objects) == 0:
+        print("  -")
+        return
+
+    for obj in lane_objects:
+        velocity, distance = _get_velocity_distance(obj)
+        print(f"  v={velocity:.2f} m/s, distance={distance:.2f} m")
+
+
+def _draw_lane_objects(ax, lane_name, lane_objects, color, marker):
+    xy = _get_lane_xy(lane_objects)
+    if xy.size == 0:
+        return
+
+    ax.scatter(
+        xy[:, 0],
+        xy[:, 1],
+        s=120,
+        c=color,
+        marker=marker,
+        edgecolors="black",
+        linewidths=1.0,
+        label=lane_name,
+        zorder=5,
+    )
+
+
+def visualize_points(fig, ax, x, y, lane_1_velocity_obj, lane_2_velocity_obj, lane_3_velocity_obj):
     print("\033c", end="")
-    print("===== AWR6843 Detected Objects =====")
-    print(f"Detected objects(header): {num_detected_obj}")
-    print(df)
-
-    labels = np.asarray(labels)
-    x = np.asarray(x, dtype=float)
-    y = np.asarray(y, dtype=float)
-    velocity_obj = np.asarray(velocity_obj)
-
-    unique_labels = sorted(set(labels.tolist())) if labels.size else []
-    cluster_count = len([lb for lb in unique_labels if lb != -1])
-    noise_count = int(np.sum(labels == -1)) if labels.size else 0
-
-    print(f"클러스터 수(DBSCAN): {cluster_count}, 노이즈 포인트: {noise_count}")
-
-    print(f"속도 필터 통과 객체: {len(velocity_obj)}개")
+    _print_lane_measurements("Lane 1", lane_1_velocity_obj)
+    _print_lane_measurements("Lane 2", lane_2_velocity_obj)
+    _print_lane_measurements("Lane 3", lane_3_velocity_obj)
 
     ax.clear()
 
+    if hasattr(fig, "_awr_colorbar"):
+        fig._awr_colorbar.remove()  # Remove the old DBSCAN colorbar because lane view no longer uses cluster colors.
+        delattr(fig, "_awr_colorbar")
+
     az_min_deg, az_max_deg, boresight_deg, range_max_m = _resolve_fov_config()
     _draw_fov_overlay(ax, az_min_deg, az_max_deg, boresight_deg, range_max_m)
+    _draw_lane_grid(ax)
 
-    # boresight(+Y) 기준 상대 방위각 계산: 0도가 정면
-    abs_deg = np.degrees(np.arctan2(y, x))
-    rel_deg = ((abs_deg - boresight_deg + 180.0) % 360.0) - 180.0
-    distances = np.hypot(x, y)
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
 
-    in_fov_mask = (
-        (rel_deg >= az_min_deg)
-        & (rel_deg <= az_max_deg)
-        & (distances <= range_max_m)
-        & (y >= 0.0)
-    )
-
-    
-    if np.any(in_fov_mask):
-        sc = ax.scatter(
-            x[in_fov_mask],
-            y[in_fov_mask],
-            s=30,
-            c=labels[in_fov_mask],
-            cmap="tab20",
-            zorder=2,
+    if x.size != 0:
+        abs_deg = np.degrees(np.arctan2(y, x))
+        rel_deg = ((abs_deg - boresight_deg + 180.0) % 360.0) - 180.0
+        distances = np.hypot(x, y)
+        in_fov_mask = (
+            (rel_deg >= az_min_deg)
+            & (rel_deg <= az_max_deg)
+            & (distances <= range_max_m)
+            & (y >= 0.0)
         )
 
-        if not hasattr(fig, "_awr_colorbar"):
-            fig._awr_colorbar = plt.colorbar(sc, ax=ax)
-            fig._awr_colorbar.set_label("Cluster ID (-1: noise)")
-        else:
-            fig._awr_colorbar.update_normal(sc)
-
-    if np.any(~in_fov_mask):
         ax.scatter(
-            x[~in_fov_mask],
-            y[~in_fov_mask],
-            s=35,
-            c="gray",
-            marker="x",
-            alpha=0.85,
-            label="Out of FOV",
+            x[in_fov_mask],
+            y[in_fov_mask],
+            s=28,
+            c="dimgray",
+            alpha=0.8,
+            label="Radar point",
             zorder=3,
         )
 
-    if cluster_objects:
-        ax.scatter(
-            [obj["x"] for obj in cluster_objects],
-            [obj["y"] for obj in cluster_objects],
-            s=80,
-            c="red",
-            marker="s",
-            edgecolors="black",
-            linewidths=1.0,
-            label="Centroid",
-            zorder=5,
-        )
-
-    if velocity_obj.size != 0:
-        ax.scatter(
-            velocity_obj[:, 1],
-            velocity_obj[:, 2],
-            s=140,
-            c="deepskyblue",
-            marker="*",
-            edgecolors="black",
-            linewidths=1.2,
-            label="Velocity Filter Pass",
-            zorder=8,
-        )
+    for lane_name, _, _, color, marker in _lane_bounds():
+        if lane_name == "Lane 1":
+            _draw_lane_objects(ax, lane_name, lane_1_velocity_obj, color, marker)
+        elif lane_name == "Lane 2":
+            _draw_lane_objects(ax, lane_name, lane_2_velocity_obj, color, marker)
+        else:
+            _draw_lane_objects(ax, lane_name, lane_3_velocity_obj, color, marker)
 
     ax.set_xlabel("X position [m]")
     ax.set_ylabel("Y position [m]")
-    ax.set_title("AWR6843 Position / DBSCAN Cluster")
-    ax.grid(True)
+    ax.set_title("AWR6843 Radar Points / Lane Grid")
     ax.set_xlim(VIEW_X_MIN, VIEW_X_MAX)
     ax.set_ylim(VIEW_Y_MIN, VIEW_Y_MAX)
     ax.set_aspect("equal", adjustable="box")
+    ax.grid(True, linestyle=":", alpha=0.35)
     ax.legend(loc="upper right")
-
 
     plt.pause(0.001)
